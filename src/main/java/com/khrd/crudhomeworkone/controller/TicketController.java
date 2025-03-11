@@ -2,6 +2,7 @@ package com.khrd.crudhomeworkone.controller;
 
 
 import com.khrd.crudhomeworkone.model.Ticket;
+import com.khrd.crudhomeworkone.reponse.ResponseTicket;
 import org.apache.catalina.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,16 +47,24 @@ public class TicketController {
 
     //Retrieve a Ticket by ID (using @PathVariable)
     @GetMapping("/{id}")
-    public ResponseEntity<?> getTicketById(@PathVariable Long id) {
+    public ResponseEntity<?> getById(@PathVariable Long id) {
         String responseBody = String.format("Ticket with id %d not found", id);
         Ticket foundTikcet = tickets.stream()
                 .filter(t -> t.getTicketId().equals(id)).findFirst().orElse(null);
         if (foundTikcet != null)
-            return new ResponseEntity<>(foundTikcet, HttpStatus.OK);
-        return new ResponseEntity<>(responseBody, HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(ResponseTicket.<Ticket>builder()
+                    .success(Boolean.TRUE)
+                    .message("Get  by id Successfull!")
+                    .payload(foundTikcet)
+                    .build(), HttpStatus.OK);
+        return new ResponseEntity<>(ResponseTicket.<Ticket>builder()
+                .success(Boolean.FALSE)
+                .message("not found!")
+                .payload(null)
+                .build(),HttpStatus.NOT_FOUND);
     }
-    //Search for a Ticket by Passenger Name (using @RequestParam)
 
+    //Search for a Ticket by Passenger Name (using @RequestParam)
     @GetMapping("/name")
     public ResponseEntity<?> getTicketByName(@RequestParam String name) {
         String responseBody = String.format("Ticket with name %s not found", name);
@@ -63,9 +72,18 @@ public class TicketController {
                 .filter(n -> n.getPassengerName().contains(name)).collect(Collectors.toCollection(ArrayList::new
                 ));
         if (foundTicketName.isEmpty()) {
-            return new ResponseEntity<>(responseBody, HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>( ResponseTicket.<List>builder()
+                    .success(Boolean.FALSE)
+                    .message(responseBody)
+                    .payload(null)
+                    .build(), HttpStatus.NOT_FOUND);
         }
-        return new ResponseEntity<>(foundTicketName, HttpStatus.OK);
+
+        return new ResponseEntity<>( ResponseTicket.<List>builder()
+                .success(Boolean.TRUE)
+                .message("search by name Successfull!")
+                .payload(foundTicketName)
+                .build(), HttpStatus.OK);
     }
     //Filter Tickets by Ticket Status and Travel Date (using @RequestParam)
 
