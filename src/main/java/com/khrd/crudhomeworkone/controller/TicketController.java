@@ -11,11 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /*
@@ -108,6 +107,7 @@ public class TicketController {
                 .build(), HttpStatus.OK);
     }
 
+    //Filter tickets by Status and travel date
     @Operation(summary = "Filter tickets by Status and travel date")
     @GetMapping("/filter")
     public ResponseEntity<ResponseTicket<List<Ticket>>> filterByDateAndTicketStatus(
@@ -184,7 +184,7 @@ public class TicketController {
 
 
     //bonus
-
+    // Update multiple by an Id
     @Operation(summary = "Update payment status for multiple tickets by their IDs")
     @PutMapping
     public ResponseEntity<?> updatePaymentStatus(@RequestBody PaymentUpdateRequest paymentUpdateRequest) {
@@ -206,6 +206,98 @@ public class TicketController {
 
         return new ResponseEntity<>(updatedTickets, HttpStatus.OK);
     }
+
+    @Operation(summary = "Get All Tickets with Pagination")
+    @GetMapping("/pagenation")
+    public ResponseEntity<?> getAllTicket(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+
+        try {
+            // Ensure tickets list is not null
+            List<Ticket> allTickets = tickets != null ? tickets : new ArrayList<>();
+
+            // Validate page number
+            if (page <= 0) {
+                Map<String, String> errors = new HashMap<>();
+                errors.put("page", "Page number must be greater than 0");
+
+                ApiErrorResponse<Map<String, String>> errorResponse = new ApiErrorResponse<>();
+                errorResponse.setType("about:blank");
+                errorResponse.setTitle("Bad Request");
+                errorResponse.setStatus(400);
+                errorResponse.setInstance("/api/v1/tickets");
+                errorResponse.setTimestamp(Instant.now());
+                errorResponse.setErrors(errors);
+
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+            }
+
+            // Calculate pagination values
+            long totalElements = allTickets.size();
+            int totalPages = totalElements == 0 ? 1 : (int) Math.ceil((double) totalElements / size);
+
+            // Check if page is within bounds
+            if (page > totalPages) {
+                Map<String, String> errors = new HashMap<>();
+                errors.put("page", "Page number exceeds available pages");
+
+                ApiErrorResponse<Map<String, String>> errorResponse = new ApiErrorResponse<>();
+                errorResponse.setType("about:blank");
+                errorResponse.setTitle("Bad Request");
+                errorResponse.setStatus(400);
+                errorResponse.setInstance("/api/v1/tickets");
+                errorResponse.setTimestamp(Instant.now());
+                errorResponse.setErrors(errors);
+
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+            }
+
+            // Convert 1-based page to 0-based index for calculations
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, (int) totalElements);
+
+            // Handle empty list case
+            List<Ticket> pageTickets;
+            if (fromIndex >= totalElements) {
+                pageTickets = new ArrayList<>();
+            } else {
+                pageTickets = new ArrayList<>(allTickets.subList(fromIndex, toIndex));
+            }
+
+            // Create pagination info
+            PaginationInfo paginationInfo = new PaginationInfo();
+            paginationInfo.setTotalElements(totalElements);
+            paginationInfo.setCurrentPage(page);
+            paginationInfo.setPageSize(size);
+            paginationInfo.setTotalPages(totalPages);
+
+            // Create paged response
+            PagedResponseListTicket response = new PagedResponseListTicket();
+            response.setItems(pageTickets);
+            response.setPagination(paginationInfo);
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (Exception e) {
+            // Log the exception
+            Map<String, String> errors = new HashMap<>();
+            errors.put("page", e.getMessage());
+
+            ApiErrorResponse<Map<String, String>> errorResponse = new ApiErrorResponse<>();
+            errorResponse.setType("about:blank");
+            errorResponse.setTitle("Internal Server Error");
+            errorResponse.setStatus(500);
+            errorResponse.setInstance("/api/v1/tickets");
+            errorResponse.setTimestamp(Instant.now());
+            errorResponse.setErrors(errors);
+
+            return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+
 
 
 }
