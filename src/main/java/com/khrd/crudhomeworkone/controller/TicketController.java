@@ -1,13 +1,12 @@
 package com.khrd.crudhomeworkone.controller;
 
 
-import com.khrd.crudhomeworkone.model.Items;
-import com.khrd.crudhomeworkone.model.Ticket;
-import com.khrd.crudhomeworkone.model.TicketRequest;
+import com.khrd.crudhomeworkone.model.*;
 import com.khrd.crudhomeworkone.reponse.ResponseTicket;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.catalina.User;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,16 +32,28 @@ public class TicketController {
 
     //constructor
     TicketController() {
-        tickets.add(new Ticket(1L, "Kao", LocalDate.of(2024, 10, 15), "New York Central Station", "Los Angeles Union Station", 1.99, true, "BOOK", "C001"));
-        tickets.add(new Ticket(2L, "a", LocalDate.of(2024, 10, 15), "New York Central Station", "Los Angeles Union Station", 1.99, false, "CANCELLED", "C003"));
-        tickets.add(new Ticket(3L, "Kdet", LocalDate.of(2024, 10, 15), "New York Central Station", "Los Angeles Union Station", 1.99, true, "COMPLETED", "C003"));
+        // Existing tickets with corrections (unique IDs)
+        tickets.add(new Ticket(1L, "Kao", LocalDate.of(2024, 10, 15), "New York Central Station", "Los Angeles Union Station", 1.99, true, TicketStatus.BOOKED, "C001"));
+        tickets.add(new Ticket(2L, "Alex", LocalDate.of(2024, 10, 15), "Chicago Union Station", "Miami Central Station", 2.99, false, TicketStatus.CANCELLED, "C002"));
+        tickets.add(new Ticket(3L, "Sok", LocalDate.of(2024, 10, 15), "Boston South Station", "Seattle King Street", 3.99, true, TicketStatus.COMPLETED, "C003"));
 
+        // Additional varied test data
+        tickets.add(new Ticket(4L, "Maria", LocalDate.of(2024, 10, 14), "Washington Union", "Austin Station", 4.99, true, TicketStatus.BOOKED, "C004"));
+        tickets.add(new Ticket(5L, "John", LocalDate.of(2024, 10, 16), "Philadelphia 30th St", "Denver Union", 5.99, true, TicketStatus.COMPLETED, "C005"));
+        tickets.add(new Ticket(6L, "Emma", LocalDate.of(2024, 10, 15), "San Francisco Caltrain", "Portland Union", 6.99, false, TicketStatus.CANCELLED, "C006"));
+        tickets.add(new Ticket(7L, "Liam", LocalDate.of(2024, 10, 17), "Atlanta Peachtree", "Charlotte Station", 7.99, true, TicketStatus.BOOKED, "C007"));
+        tickets.add(new Ticket(8L, "Olivia", LocalDate.of(2024, 10, 14), "Houston Main St", "Phoenix Union", 8.99, true, TicketStatus.COMPLETED, "C008"));
+        tickets.add(new Ticket(9L, "Noah", LocalDate.of(2024, 10, 13), "Detroit Station", "Minneapolis Depot", 9.99, false, TicketStatus.CANCELLED, "C009"));
+        tickets.add(new Ticket(10L, "Ava", LocalDate.of(2024, 10, 16), "St Louis Gateway", "Kansas City Union", 10.99, true, TicketStatus.BOOKED, "C010"));
     }
+
     @Operation(summary = "Create new ticket")
     @PostMapping
     public ResponseEntity<?> createTicket(@RequestBody Ticket ticket) {
+
+        ticket.setTicketId((long) (tickets.size() + 1)); // Ensure ID is a Long
         tickets.add(ticket);
-        return new ResponseEntity<>(ResponseTicket.<Ticket>builder().success(Boolean.TRUE).payload(ticket)
+        return new ResponseEntity<>(ResponseTicket.<Ticket>builder().success(Boolean.TRUE).message("Succusfull Create").status("OK").payload(ticket).timestamp(LocalDateTime.now())
                 .build(), HttpStatus.CREATED);
     }
 
@@ -96,16 +108,35 @@ public class TicketController {
                 .build(), HttpStatus.OK);
     }
 
+    @Operation(summary = "Filter tickets by Status and travel date")
+    @GetMapping("/filter")
+    public ResponseEntity<ResponseTicket<List<Ticket>>> filterByDateAndTicketStatus(
+            @RequestParam TicketStatus eTicketStatus,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate filterDate) {
 
+        List<Ticket> filteredTickets = tickets.stream()
+                // Compare enum directly (not as String)
+                .filter(ticket -> ticket.getTicketStatus() == eTicketStatus)
+                // Use LocalDate comparison
+                .filter(ticket -> ticket.getTravelDate().isEqual(filterDate))
+                .collect(Collectors.toList());
 
-    //Filter Tickets by Ticket Status and Travel Date (using @RequestParam)
-    @Operation(summary = "Filter ticket by Status and travel date")
-    public ResponseEntity<?> filterByDateAndTicketStatus(){
-
-
-        return  new ResponseEntity<>("a", HttpStatus.OK);
+        return filteredTickets.isEmpty()
+                ? ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ResponseTicket.<List<Ticket>>builder()
+                        .status("NOT_FOUND")
+                        .message(String.format("No tickets found with status %s and date %s", eTicketStatus, filterDate))
+                        .payload(Collections.emptyList())
+                        .timestamp(LocalDateTime.now())
+                        .build())
+                : ResponseEntity.ok(
+                ResponseTicket.<List<Ticket>>builder()
+                        .status("OK")
+                        .message("Tickets filtered successfully.")
+                        .payload(filteredTickets)
+                        .timestamp(LocalDateTime.now())
+                        .build());
     }
-
 
     //Update a Ticket by ID
     @Operation(summary = "Update an existing ticket by id")
@@ -120,15 +151,14 @@ public class TicketController {
                 ticket.setSourceStation(ticketRequest.getSourceStation());
                 ticket.setDestinationStation(ticketRequest.getDestinationStation());
                 ticket.setPrice(ticketRequest.getPrice());
-                ticket.setTicketStatus(String.valueOf(ticketRequest.getTicketStatus()));
+                ticket.setTicketStatus(ticketRequest.getTicketStatus());
                 ticket.setPaymentStatus(ticketRequest.isPaymentStatus());
                 ticket.setSeatNumber(ticketRequest.getSeatNumber());
-
                 return new ResponseEntity<Ticket>(ticket, HttpStatus.OK);
             }
         }
 
-        return new ResponseEntity<>("Update the ticket", HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>("Can not update the ticket :) ", HttpStatus.NOT_FOUND);
     }
 
     //Delete a Ticket by ID
@@ -150,6 +180,31 @@ public class TicketController {
                 .message("id not found! ").status("404")
                 .payload(Items.builder().item(null).build()).timestamp(LocalDateTime.now())
                 .build(), HttpStatus.NOT_FOUND);
+    }
+
+
+    //bonus
+
+    @Operation(summary = "Update payment status for multiple tickets by their IDs")
+    @PutMapping
+    public ResponseEntity<?> updatePaymentStatus(@RequestBody PaymentUpdateRequest paymentUpdateRequest) {
+        List<Long> ticketIds = paymentUpdateRequest.getTicketIds();
+        Boolean paymentStatus = paymentUpdateRequest.getPaymentStatus();
+        List<Ticket> updatedTickets = new ArrayList<>();
+
+        for (Ticket ticket : tickets) {
+            if (ticketIds.contains(ticket.getTicketId())) {
+                // Update the payment status
+                ticket.setPaymentStatus(paymentStatus);
+                updatedTickets.add(ticket); // Add the updated ticket to the response list
+            }
+        }
+
+        if (updatedTickets.isEmpty()) {
+            return new ResponseEntity<>("No tickets found with the provided IDs", HttpStatus.NOT_FOUND);
+        }
+
+        return new ResponseEntity<>(updatedTickets, HttpStatus.OK);
     }
 
 
